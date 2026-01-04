@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Solana Brand Gradients */
+:root {
+  --bg-deep: #02040a;
+}
+
+@layer base {
+  body {
+    @apply bg-[#02040a] text-slate-200 font-sans antialiased selection:bg-purple-500/30 selection:text-white;
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 0% 50%, rgba(20, 241, 149, 0.05) 0%, transparent 40%);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-700/50 rounded-full hover:bg-slate-600;
+}
+
+/* Hide Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* Wallet Adapter Override */
+.wallet-adapter-button {
+  height: 44px !important;
+  padding: 0 20px !important;
+  border-radius: 12px !important;
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+}
+
+.wallet-adapter-button:hover {
+  background-color: rgba(153, 69, 255, 0.2) !important;
+  border-color: rgba(153, 69, 255, 0.5) !important;
+}
