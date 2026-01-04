@@ -9,7 +9,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node backend/index.js"
+    "server": "node --watch backend/index.js"
   },
   "dependencies": {
     "@metaplex-foundation/js": "^0.20.1",

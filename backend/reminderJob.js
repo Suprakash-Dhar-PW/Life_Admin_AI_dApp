@@ -7,21 +7,41 @@ let transporter = null;
 
 export async function initEmailer() {
   if (transporter) return;
-  try {
-    // Check if we have real credentials in ENV (Not implemented in this demo env, defaulting to Ethereal)
-    const testAccount = await nodemailer.createTestAccount();
+
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+
+  if (user && pass) {
+    console.log(`📧 Configuring Real Email: ${user}`);
+
+    // Fix common user typo: smtp@gmail.com -> smtp.gmail.com
+    let host = process.env.EMAIL_HOST || "smtp.gmail.com";
+    if (host.includes("@")) host = host.replace("@", ".");
+
     transporter = nodemailer.createTransport({
-      host: "smtp.ethereal.email",
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
+      host: host,
+      port: Number(process.env.EMAIL_PORT) || 587,
+      secure: false, // true for 465, false for other ports
+      auth: { user, pass },
     });
-    console.log("📧 Email System Ready (Mode: Ethereal Test)");
-  } catch (err) {
-    console.warn("⚠️ Email init failed:", err);
+    console.log("✅ Real SMTP Transporter Initialized");
+  } else {
+    try {
+      // Fallback to Ethereal
+      const testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      console.log("📧 Ethereal Email Ready (Mode: Test)");
+    } catch (err) {
+      console.warn("⚠️ Email init failed:", err);
+    }
   }
 }
 

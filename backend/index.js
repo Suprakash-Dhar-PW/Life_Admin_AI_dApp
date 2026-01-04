@@ -7,7 +7,11 @@ import dotenv from "dotenv";
 import { startReminderJob, sendEmail, generateICal } from "./reminderJob.js";
 import { refundStake } from "./refundStake.js";
 
-dotenv.config();
+// Load Env from backend directory explicitly
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, ".env") });
+console.log(`[ENV] Loaded config for user: ${process.env.EMAIL_USER || 'Not Set'}`);
 
 const app = express();
 const PORT = 3001;
@@ -17,8 +21,6 @@ app.use(cors());
 app.use(express.json());
 
 // Database Setup
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const DB_FILE = path.join(__dirname, "db.json");
 
 // Initialize DB
@@ -36,6 +38,32 @@ const normalize = (addr) => addr ? addr.trim() : "";
 
 app.get("/", (req, res) => {
   res.send("Life Admin AI Backend (Testnet) 🤖");
+});
+
+// ============================
+// TEST EMAIL ENDPOINT
+// ============================
+app.get("/api/test-email", async (req, res) => {
+  const targetEmail = req.query.to;
+
+  if (!targetEmail) {
+    return res.status(400).json({ error: "Missing ?to=email@example.com" });
+  }
+
+  try {
+    // Use the shared mailer helper which is already configured with Gmail
+    await sendEmail({
+      to: targetEmail,
+      subject: "✅ Life Admin AI – Test Email",
+      text: "This is a test email from Life Admin AI backend.",
+      html: `<h2>🎉 Email Working!</h2><p>Your Life Admin AI email system is configured correctly.</p>`
+    });
+
+    res.json({ success: true, message: "Test email sent via shared mailer" });
+  } catch (err) {
+    console.error("Email error:", err);
+    res.status(500).json({ error: "Email failed", details: err.message });
+  }
 });
 
 // GET /api/commitments - Source of Truth
@@ -301,4 +329,5 @@ startReminderJob(DB_FILE);
 
 app.listen(PORT, () => {
   console.log(`🚀 Service running on port ${PORT}`);
+  console.log(`✅ Test Endpoint: http://localhost:${PORT}/api/test-email`);
 });
