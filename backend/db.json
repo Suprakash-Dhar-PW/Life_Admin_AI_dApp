@@ -432,9 +432,11 @@
     "service": "to be superman",
     "renewalDate": "2026-01-05T11:59",
     "stakeAmount": 0.5,
-    "status": "PENDING",
+    "status": "PROOF_SUBMITTED",
     "createdAt": "2026-01-04T06:31:40.411Z",
-    "lastNotified": null
+    "lastNotified": null,
+    "proofCid": "ipfs://QmcUr8pd7P9QKGxmYubKN11DszwknLmFxMp4GpcMfN7kTh",
+    "proofSubmittedAt": "2026-01-04T07:04:53.687Z"
   },
   {
     "mintAddress": "HKyHk8a8B7m8G4awnRspkeZisthBHCvrQ9DUvtawWGW8",
@@ -445,8 +447,61 @@
     "service": "go to a date",
     "renewalDate": "2026-01-04T12:35",
     "stakeAmount": 1,
-    "status": "PENDING",
+    "status": "PROOF_SUBMITTED",
     "createdAt": "2026-01-04T06:33:40.243Z",
-    "lastNotified": "2026-01-04T06:34:58.735Z"
+    "lastNotified": "2026-01-04T06:34:58.735Z",
+    "proofCid": "ipfs://QmYE25CdWn9QuhbyCKpPFTJxofLkWbXph2inkVN8pPUGvk",
+    "proofSubmittedAt": "2026-01-04T07:04:37.694Z"
+  },
+  {
+    "mintAddress": "H1pkzZTZsRrXe1sKgxncjVmfQdH7c8kJvZMUq5BqxVWg",
+    "owner": "GwygPNFpJVqwvH3dUktYXJfpMrXiHWvYT8tkDTFo4gDA",
+    "verifier": "FBuJ9xHqG4tATW5wKJAn1uRKpM4WujNtKfA25CzXNBhy",
+    "email": "dharsuprakash02@gmail.com",
+    "metadataUri": "ipfs://QmRkHL1jTN87hab1q3gocxUUFTzE5o9eCCk6mB3FTSvJ7h",
+    "service": "Have a bath",
+    "renewalDate": "2026-01-04T13:00",
+    "stakeAmount": 0.5,
+    "status": "COMPLETED",
+    "createdAt": "2026-01-04T06:56:12.683Z",
+    "lastNotified": null,
+    "proofCid": "ipfs://QmektAp39CiLx6YucZ4JuZjkoL5hGHA9VyAQp61rtuZ5ST",
+    "proofSubmittedAt": "2026-01-04T06:58:18.450Z",
+    "refundTx": "NAftPS3oxA766PFQKaVpCrQ4Q1t3UtkfjdtVJMxaH5sxHCZRbK8gijURmwgn3crgrcjAV4F2ivAtZNR4RPD5tvy",
+    "resolvedAt": "2026-01-04T06:58:43.590Z"
+  },
+  {
+    "mintAddress": "BJWAC3ySydAwnjfb6KB4enbowxXppXCQyBRxh5FsExXX",
+    "owner": "GwygPNFpJVqwvH3dUktYXJfpMrXiHWvYT8tkDTFo4gDA",
+    "verifier": "FBuJ9xHqG4tATW5wKJAn1uRKpM4WujNtKfA25CzXNBhy",
+    "email": "dharsuprakash02@gmail.com",
+    "metadataUri": "ipfs://QmRkHL1jTN87hab1q3gocxUUFTzE5o9eCCk6mB3FTSvJ7h",
+    "service": "Have a bath",
+    "renewalDate": "2026-01-04T13:00",
+    "stakeAmount": 0.5,
+    "status": "COMPLETED",
+    "createdAt": "2026-01-04T06:57:47.949Z",
+    "lastNotified": "2026-01-04T06:59:11.788Z",
+    "proofCid": "ipfs://QmNPdPkFa9AmG3f1e6GLnNtYJJJFXZL6Sb7RkTmNvVhSWP",
+    "proofSubmittedAt": "2026-01-04T07:00:01.821Z",
+    "refundTx": "qjKY5QMwQ4dZCRj9JASgjyS4ekVprNE79dYFWYMLU6rKQmxcHHLWr4btQnTs8Aa3N9a9RzaH8UXnYE6dbVVPSQP",
+    "resolvedAt": "2026-01-04T07:00:31.404Z"
+  },
+  {
+    "mintAddress": "9vyuqL2dFjt25eCf1EwkajK78wv1XYGVpKbT1b9ohmvp",
+    "owner": "GwygPNFpJVqwvH3dUktYXJfpMrXiHWvYT8tkDTFo4gDA",
+    "verifier": "FBuJ9xHqG4tATW5wKJAn1uRKpM4WujNtKfA25CzXNBhy",
+    "email": "dharsuprakash02@gmail.com",
+    "metadataUri": "ipfs://QmQR7HykkbgznGtzRPFS8tpswF7R5SKeZs6ANdhq1jVEji",
+    "service": "Attend College",
+    "renewalDate": "2026-01-04T13:04",
+    "stakeAmount": 0.1,
+    "status": "COMPLETED",
+    "createdAt": "2026-01-04T07:02:01.310Z",
+    "lastNotified": "2026-01-04T07:03:11.132Z",
+    "proofCid": "ipfs://QmaexP6k7RtuXLjn92eQmu4YqndATy4iiFkfasubqaC86X",
+    "proofSubmittedAt": "2026-01-04T07:03:27.977Z",
+    "refundTx": "5dTwuJkzjemzLUuRptjnbc1vVZtFZs68FFimjEEEUbMCbZZDD4d7PAFPGuYXBMZqdKy6ySw2kGCELBbbHvtxK5cp",
+    "resolvedAt": "2026-01-04T07:03:49.852Z"
   }
 ]

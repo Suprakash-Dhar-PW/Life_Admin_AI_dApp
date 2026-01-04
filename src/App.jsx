@@ -286,7 +286,10 @@ function App() {
          return new Date(b.deadline) - new Date(a.deadline);
       });
 
-      setCommitments(uniqueCommitments);
+      // Filter out user-requested hidden items
+      const visibleCommitments = uniqueCommitments.filter(c => c.service !== "Conducting a Hackathon");
+
+      setCommitments(visibleCommitments);
     } catch (e) {
       console.error("Load Error:", e);
     } finally {
