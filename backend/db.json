@@ -503,5 +503,22 @@
     "proofSubmittedAt": "2026-01-04T07:03:27.977Z",
     "refundTx": "5dTwuJkzjemzLUuRptjnbc1vVZtFZs68FFimjEEEUbMCbZZDD4d7PAFPGuYXBMZqdKy6ySw2kGCELBbbHvtxK5cp",
     "resolvedAt": "2026-01-04T07:03:49.852Z"
+  },
+  {
+    "mintAddress": "D5xH7Wqfe3wGGY8HChQ62YUFY2nZfhmZb27HH85XeLof",
+    "owner": "GwygPNFpJVqwvH3dUktYXJfpMrXiHWvYT8tkDTFo4gDA",
+    "verifier": "FBuJ9xHqG4tATW5wKJAn1uRKpM4WujNtKfA25CzXNBhy",
+    "email": "dharsuprakash02@gmail.com",
+    "metadataUri": "ipfs://QmerkacnLNHWckHZ61E6C3kT5trHgtT2tFE7LB4rrDhYkD",
+    "service": "Giveaway",
+    "renewalDate": "2026-01-04T13:10",
+    "stakeAmount": 2,
+    "status": "COMPLETED",
+    "createdAt": "2026-01-04T07:08:41.757Z",
+    "lastNotified": null,
+    "proofCid": "ipfs://QmefK7qBst5eZhNFGThEQVrfC8obAFE6wHEo6bevjjZssP",
+    "proofSubmittedAt": "2026-01-04T07:09:02.379Z",
+    "refundTx": "4nujTFs6hS9WKSp3P29EPn6Wquw2umZnMvBjx4LY9ZPq1UWQTtAPw128BR9pSNAaghkaqDEfdNvYxdYBJkbzvESm",
+    "resolvedAt": "2026-01-04T07:09:32.453Z"
   }
 ]
