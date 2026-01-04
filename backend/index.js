@@ -4,250 +4,152 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { startReminderJob, sendEmail, generateICal } from "./reminderJob.js";
+
+import { runReminderCheck } from "./reminderJob.js";
+import { sendEmail, generateICal } from "./mailer.js";
 import { refundStake } from "./refundStake.js";
 
-// Load Env from backend directory explicitly
+/* ---------------- ENV ---------------- */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
-console.log(`[ENV] Loaded config for user: ${process.env.EMAIL_USER || 'Not Set'}`);
 
+console.log(`[ENV] Loaded config for user: ${process.env.EMAIL_USER || "Not Set"}`);
+
+/* ---------------- APP ---------------- */
 const app = express();
 const PORT = 3001;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Database Setup
+/* ---------------- DB ---------------- */
 const DB_FILE = path.join(__dirname, "db.json");
 
-// Initialize DB
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify([]));
 }
 
 const readDB = () => JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
-const writeDB = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+const writeDB = (data) =>
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 
-// Helper: Normalize Mint Address (trim, lowercase check if needed)
-const normalize = (addr) => addr ? addr.trim() : "";
+const normalize = (v) => (v ? v.trim() : "");
 
-// Routes
+/* ---------------- ROUTES ---------------- */
 
 app.get("/", (req, res) => {
   res.send("Life Admin AI Backend (Testnet) 🤖");
 });
 
-// ============================
-// TEST EMAIL ENDPOINT
-// ============================
+/* ---------- TEST EMAIL ---------- */
 app.get("/api/test-email", async (req, res) => {
-  const targetEmail = req.query.to;
+  const to = req.query.to;
+  if (!to) return res.status(400).json({ error: "Missing ?to=email" });
 
-  if (!targetEmail) {
-    return res.status(400).json({ error: "Missing ?to=email@example.com" });
-  }
+  await sendEmail({
+    to,
+    subject: "✅ Life Admin AI – Email Working",
+    text: "Email system is configured correctly.",
+    html: "<h2>✅ Email system working</h2>",
+  });
 
-  try {
-    // Use the shared mailer helper which is already configured with Gmail
-    await sendEmail({
-      to: targetEmail,
-      subject: "✅ Life Admin AI – Test Email",
-      text: "This is a test email from Life Admin AI backend.",
-      html: `<h2>🎉 Email Working!</h2><p>Your Life Admin AI email system is configured correctly.</p>`
-    });
-
-    res.json({ success: true, message: "Test email sent via shared mailer" });
-  } catch (err) {
-    console.error("Email error:", err);
-    res.status(500).json({ error: "Email failed", details: err.message });
-  }
+  res.json({ success: true });
 });
 
-// GET /api/commitments - Source of Truth
+/* ---------- COMMITMENTS ---------- */
 app.get("/api/commitments", (req, res) => {
-  try {
-    const db = readDB();
-    res.json(db);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to read database" });
-  }
+  res.json(readDB());
 });
 
-// POST /api/track - Register new commitment
+/* ---------- TRACK ---------- */
 app.post("/api/track", async (req, res) => {
-  try {
-    const {
-      mintAddress,
-      owner,
-      verifier,
-      email,
-      metadataUri,
-      renewalDate, // Frontend might send 'deadline'
-      deadline,
-      service, // Frontend might send 'goal'
-      goal,
-      stakeAmount, // Frontend might send 'stake'
-      stake
-    } = req.body;
+  const {
+    mintAddress,
+    owner,
+    email,
+    metadataUri,
+    renewalDate,
+    deadline,
+    service,
+    goal,
+    stakeAmount,
+    stake,
+    verifier,
+  } = req.body;
 
-    const mint = normalize(mintAddress);
-    if (!mint || !owner || !metadataUri) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
+  const mint = normalize(mintAddress);
+  if (!mint || !owner || !metadataUri)
+    return res.status(400).json({ error: "Missing fields" });
 
-    const db = readDB();
-    if (db.find(r => r.mintAddress === mint)) {
-      return res.json({ message: "Already tracked" });
-    }
+  const db = readDB();
+  if (db.find((x) => x.mintAddress === mint))
+    return res.json({ message: "Already tracked" });
 
-    const finalDeadline = renewalDate || deadline;
-    const finalService = service || goal || "Unknown Goal";
-    const finalStake = parseFloat(stakeAmount || stake || "0");
+  const finalDeadline = renewalDate || deadline;
+  const finalService = service || goal || "Unknown Task";
+  const finalStake = parseFloat(stakeAmount || stake || "0");
 
-    const commitment = {
-      mintAddress: mint,
-      owner,
-      verifier: verifier || "FBuJ9xHqG4tATW5wKJAn1uRKpM4WujNtKfA25CzXNBhy", // Default to Admin
-      email: email || null,
-      metadataUri,
-      service: finalService,
-      renewalDate: finalDeadline,
-      stakeAmount: finalStake,
-      status: "PENDING",
-      proofCid: null,
-      proofSubmittedAt: null,
-      createdAt: new Date().toISOString(),
-      resolvedAt: null,
-      refundTx: null,
-      lastNotified: null
-    };
+  const item = {
+    mintAddress: mint,
+    owner,
+    verifier:
+      verifier || "FBuJ9xHqG4tATW5wKJAn1uRKpM4WujNtKfA25CzXNBhy",
+    email,
+    metadataUri,
+    service: finalService,
+    renewalDate: finalDeadline,
+    stakeAmount: finalStake,
+    status: "PENDING",
+    createdAt: new Date().toISOString(),
+    lastNotified: null,
+  };
 
-    db.push(commitment);
-    writeDB(db);
+  db.push(item);
+  writeDB(db);
 
-    console.log(`[TRACK] ${commitment.service} (${commitment.stakeAmount} SOL)`);
+  /* Calendar invite */
+  if (email) {
+    const start = new Date(finalDeadline);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
 
-    // --- SEND CALENDAR INVITE ---
-    if (email) {
-      console.log(`[EMAIL] Sending Calendar Invite to ${email}...`);
-
-      const eventStart = new Date(finalDeadline);
-      const eventEnd = new Date(eventStart.getTime() + 60 * 60 * 1000); // 1 Hour duration
-
-      const icalContent = generateICal({
+    await sendEmail({
+      to: email,
+      subject: `🔒 Locked: ${finalService}`,
+      html: `<h2>${finalService}</h2><p>Deadline: ${start.toLocaleString()}</p>`,
+      icalEvent: generateICal({
         service: finalService,
-        start: eventStart,
-        end: eventEnd,
-        description: `Commitment: ${finalStake} SOL Staked.\nProof Verification Required by this time.\nVerify at: http://localhost:5173`,
-        url: "http://localhost:5173"
-      });
-
-      await sendEmail({
-        to: email,
-        subject: `LOCKED: ${finalService} (Add to Calendar)`,
-        text: `You have staked ${finalStake} SOL. Deadline: ${new Date(finalDeadline).toLocaleString()}. Check attached invite.`,
-        html: `
-          <div style="font-family: sans-serif; padding: 20px; background: #0f172a; color: #fff; border-radius: 10px;">
-            <h1 style="color: #4ade80;">Commitment Locked 🔒</h1>
-            <p>You have successfully staked <strong>${finalStake} SOL</strong> on:</p>
-            <h2 style="background: #1e293b; padding: 10px; border-radius: 5px;">${finalService}</h2>
-            <p><strong>Deadline:</strong> ${new Date(finalDeadline).toLocaleString()}</p>
-            <p>We've attached a Calendar Invite. Add it now to ensure you don't miss the deadline!</p>
-            <hr style="border-color: #334155; margin: 20px 0;">
-            <p style="font-size: small; color: #94a3b8;">Protocol.Commit | Solana Testnet</p>
-          </div>
-        `,
-        icalEvent: icalContent
-      });
-    }
-
-    res.json({ success: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Server error" });
+        start,
+        end,
+        description: `Stake: ${finalStake} SOL`,
+        url: "https://life-admin-ai-five.vercel.app",
+      }),
+    });
   }
+
+  res.json({ success: true });
 });
 
-// POST /api/proof - Submit Proof
+/* ---------- PROOF ---------- */
 app.post("/api/proof", (req, res) => {
-  try {
-    const { mintAddress, proofCid, submittedBy, recovery } = req.body;
-    console.log("[PROOF] Body:", JSON.stringify(req.body, null, 2));
-    const mint = normalize(mintAddress);
+  const { mintAddress, proofCid, submittedBy } = req.body;
+  const mint = normalize(mintAddress);
 
-    if (!mint || !proofCid) return res.status(400).json({ error: "Missing data" });
+  const db = readDB();
+  const item = db.find((x) => x.mintAddress === mint);
+  if (!item) return res.status(404).json({ error: "Not found" });
+  if (item.owner !== submittedBy)
+    return res.status(403).json({ error: "Not owner" });
 
-    const db = readDB();
-    let item = db.find(r => r.mintAddress === mint);
+  item.proofCid = proofCid;
+  item.status = "PROOF_SUBMITTED";
+  item.proofSubmittedAt = new Date().toISOString();
 
-    // AUTO-RECOVERY for "Unsynced" NFTs
-    if (!item) {
-      // 1. First, check if we have a "Pending" item with the SAME Service Name (Ghost Record)
-      // This handles cases where the DB has a record (maybe different mint due to retry) but matches the user's intent.
-      if (recovery && recovery.service) {
-        const existingGhost = db.find(r =>
-          r.owner === submittedBy &&
-          r.service === recovery.service &&
-          r.status === "PENDING"
-        );
-
-        if (existingGhost) {
-          console.log(`[RECOVERY] Merging with existing pending task: ${existingGhost.mintAddress} -> ${mint}`);
-          item = existingGhost;
-          item.mintAddress = mint; // Update to the REAL mint on chain
-          // We don't push to DB because 'item' is a reference to the object inside 'db' array
-        } else {
-          // 2. No matching ghost found, create fresh
-          console.log(`[RECOVERY] Restoring missing commitment: ${mint}`);
-          item = {
-            mintAddress: mint,
-            owner: submittedBy,
-            verifier: "FBuJ9xHqG4tATW5wKJAn1uRKpM4WujNtKfA25CzXNBhy", // Default
-            email: "recovered@example.com", // Fallback
-            metadataUri: "recovered-from-chain",
-            service: recovery.service || "Recovered Goal",
-            renewalDate: recovery.deadline,
-            stakeAmount: normalizeStake(recovery.stake),
-            status: "PENDING",
-            createdAt: new Date().toISOString(),
-            lastNotified: null
-          };
-          db.push(item);
-        }
-      } else {
-        return res.status(404).json({ error: "Commitment not found in DB" });
-      }
-    }
-
-    if (item.owner !== submittedBy) return res.status(403).json({ error: "Not owner" });
-
-    // Correction: Allow re-submission if not yet completed/failed? Or strict? 
-    // Strict: if (item.status !== "PENDING") ...
-    // User flow: PENDING -> PROOF_SUBMITTED
-
-    item.proofCid = proofCid;
-    item.proofSubmittedAt = new Date().toISOString();
-    item.status = "PROOF_SUBMITTED";
-
-    writeDB(db);
-    console.log(`[PROOF] Submitted for ${mint}`);
-    res.json({ success: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Server Error" });
-  }
+  writeDB(db);
+  res.json({ success: true });
 });
 
-function normalizeStake(val) {
-  if (!val) return 0;
-  const clean = String(val).replace(" SOL", "").trim();
-  return parseFloat(clean) || 0;
-}
-
-// GET /api/verifier/:wallet - Get tasks for admin
+/* ---------- VERIFIER ---------- */
 app.get("/api/verifier/:wallet", (req, res) => {
   const { wallet } = req.params;
   const db = readDB();
@@ -259,75 +161,75 @@ app.get("/api/verifier/:wallet", (req, res) => {
   res.json(tasks);
 });
 
-// POST /api/approve - Refund & Complete
+/* ---------- APPROVE ---------- */
 app.post("/api/approve", async (req, res) => {
-  try {
-    const { mintAddress, verifier, clientSide, txSignature } = req.body;
-    const mint = normalize(mintAddress);
-    const db = readDB();
-    const item = db.find(r => r.mintAddress === mint);
+  const { mintAddress, verifier, txSignature } = req.body;
+  const mint = normalize(mintAddress);
 
-    if (!item) return res.status(404).json({ error: "Not found" });
-    if (item.verifier !== verifier) return res.status(403).json({ error: "Unauthorized" });
+  const db = readDB();
+  const item = db.find((x) => x.mintAddress === mint);
 
-    let signature = txSignature;
+  if (!item) return res.status(404).json({ error: "Not found" });
+  if (item.verifier !== verifier)
+    return res.status(403).json({ error: "Unauthorized" });
 
-    if (!clientSide) {
-      console.log(`[APPROVE] Attempting SERVER refund for ${mint}...`);
-      signature = await refundStake({
+  let sig = txSignature;
+
+  // Only run server-side refund if client didn't do it
+  if (!sig) {
+    try {
+      sig = await refundStake({
         toWallet: item.owner,
-        amountSol: item.stakeAmount
+        amountSol: item.stakeAmount,
       });
-    } else {
-      console.log(`[APPROVE] Client-side refund confirmed: ${signature}`);
+    } catch (err) {
+      console.error("Refund failed:", err);
+      return res.status(500).json({ error: "Refund failed on server" });
     }
-
-    item.status = "COMPLETED";
-    item.resolvedAt = new Date().toISOString();
-    item.refundTx = signature;
-
-    writeDB(db);
-    console.log(`[SUCCESS] Completed: ${mint}`);
-    res.json({ success: true, refundTx: signature });
-
-  } catch (e) {
-    console.error(`[REFUND FAILED]`, e);
-    res.status(500).json({ error: "Refund failed on chain. Check logs." });
   }
+
+  item.status = "COMPLETED";
+  item.refundTx = sig;
+  item.resolvedAt = new Date().toISOString();
+
+  writeDB(db);
+  res.json({ success: true, refundTx: sig });
 });
 
-// POST /api/reject - Forfeit & Fail
+/* ---------- REJECT ---------- */
 app.post("/api/reject", (req, res) => {
-  try {
-    const { mintAddress, verifier } = req.body;
-    const mint = normalize(mintAddress);
-    const db = readDB();
-    const item = db.find(r => r.mintAddress === mint);
+  const { mintAddress, verifier } = req.body;
+  const mint = normalize(mintAddress);
 
-    if (!item) return res.status(404).json({ error: "Not found" });
-    if (item.verifier !== verifier) return res.status(403).json({ error: "Unauthorized" });
+  const db = readDB();
+  const item = db.find((x) => x.mintAddress === mint);
 
-    // No refund (or maybe partial? User requirement said: "Stake remains with admin")
-    // Note: User prompt says "Stake remains with admin".
-    // Previous code had 0.01 SOL partial refund logic on frontend. 
-    // Backend Implementation: Just mark FAILED. Admin keeps funds.
+  if (!item) return res.status(404).json({ error: "Not found" });
+  if (item.verifier !== verifier)
+    return res.status(403).json({ error: "Unauthorized" });
 
-    item.status = "FAILED";
-    item.resolvedAt = new Date().toISOString();
+  item.status = "FAILED";
+  item.resolvedAt = new Date().toISOString();
+  writeDB(db);
 
-    writeDB(db);
-    console.log(`[REJECT] Stake forfeited for ${mint}`);
-    res.json({ success: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Server Error" });
-  }
+  res.json({ success: true });
 });
 
-// Start Cron
-startReminderJob(DB_FILE);
+/* ---------- REMINDER TRIGGER ---------- */
+app.post("/api/run-reminders", async (req, res) => {
+  await runReminderCheck(DB_FILE);
+  res.json({ success: true });
+});
 
+/* ---------------- START ---------------- */
 app.listen(PORT, () => {
-  console.log(`🚀 Service running on port ${PORT}`);
-  console.log(`✅ Test Endpoint: http://localhost:${PORT}/api/test-email`);
+  console.log(`🚀 Backend running on http://localhost:${PORT}`);
+
+  // Start Local Reminder Loop (Dev Mode)
+  if (process.env.NODE_ENV !== "production") {
+    console.log("⏱ Starting local background reminder loop...");
+    setInterval(() => {
+      runReminderCheck(DB_FILE).catch(err => console.error("Reminder Loop Error:", err));
+    }, 60 * 1000); // Every minute
+  }
 });

@@ -1,176 +1,78 @@
-import cron from "node-cron";
 import fs from "fs";
-import nodemailer from "nodemailer";
+import { sendEmail } from "./mailer.js";
 
-// Shared Transporter
-let transporter = null;
-
-export async function initEmailer() {
-  if (transporter) return;
-
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-
-  if (user && pass) {
-    console.log(`📧 Configuring Real Email: ${user}`);
-
-    // Fix common user typo: smtp@gmail.com -> smtp.gmail.com
-    let host = process.env.EMAIL_HOST || "smtp.gmail.com";
-    if (host.includes("@")) host = host.replace("@", ".");
-
-    transporter = nodemailer.createTransport({
-      host: host,
-      port: Number(process.env.EMAIL_PORT) || 587,
-      secure: false, // true for 465, false for other ports
-      auth: { user, pass },
-    });
-    console.log("✅ Real SMTP Transporter Initialized");
-  } else {
-    try {
-      // Fallback to Ethereal
-      const testAccount = await nodemailer.createTestAccount();
-      transporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-      console.log("📧 Ethereal Email Ready (Mode: Test)");
-    } catch (err) {
-      console.warn("⚠️ Email init failed:", err);
-    }
-  }
-}
-
-export async function sendEmail({ to, subject, text, html, icalEvent }) {
-  if (!transporter) await initEmailer();
-  if (!transporter) return;
-
-  try {
-    const opts = {
-      from: '"Protocol.Commit" <ai@lifeadmin.so>',
-      to,
-      subject,
-      text,
-      html,
-    };
-
-    if (icalEvent) {
-      opts.icalEvent = {
-        filename: 'commitment.ics',
-        method: 'request',
-        content: icalEvent
-      };
-    }
-
-    const info = await transporter.sendMail(opts);
-    console.log(`📩 Email Sent to ${to}: ${nodemailer.getTestMessageUrl(info)}`);
-  } catch (e) {
-    console.error("Email send error:", e);
-  }
-}
-
-export function generateICal({ service, start, end, description, url }) {
-  // Simple iCal format
-  const formatDate = (date) => date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-  const now = formatDate(new Date());
-
-  return `
-BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Protocol.Commit//NONSGML v1.0//EN
-BEGIN:VEVENT
-UID:${Date.now()}@protocol.commit
-DTSTAMP:${now}
-DTSTART:${formatDate(new Date(start))}
-DTEND:${formatDate(new Date(end))}
-SUMMARY:${service} (Protocol.Commit)
-DESCRIPTION:${description}
-URL:${url}
-STATUS:CONFIRMED
-BEGIN:VALARM
-TRIGGER:-PT15M
-ACTION:DISPLAY
-DESCRIPTION:Reminder
-END:VALARM
-END:VEVENT
-END:VCALENDAR
-`.trim();
-}
-
-// Helper to read DB
+/* -------------------------
+   DB Helpers
+-------------------------- */
 const readDB = (dbPath) => {
   if (!fs.existsSync(dbPath)) return [];
-  return JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+  return JSON.parse(fs.readFileSync(dbPath, "utf-8"));
 };
 
 const writeDB = (dbPath, data) => {
   fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
 };
 
-export async function startReminderJob(dbPath) {
-  await initEmailer();
+/* -------------------------
+   CORE REMINDER LOGIC
+-------------------------- */
+export async function runReminderCheck(dbPath) {
+  const db = readDB(dbPath);
+  const now = new Date();
+  let updated = false;
 
-  // Run every minute
-  cron.schedule("* * * * *", async () => {
-    // console.log("Running reminder check...");
-    const db = readDB(dbPath);
-    let updated = false;
-    const now = new Date();
+  for (const item of db) {
+    // 1️⃣ Must have email
+    if (!item.email) continue;
 
-    for (const item of db) {
-      if (!item.renewalDate) continue;
-      if (item.status !== "PENDING" && item.status !== "ON_CHAIN_ONLY") continue;
+    // 2️⃣ Only pending tasks
+    if (item.status !== "PENDING") continue;
 
-      const renewal = new Date(item.renewalDate);
-      const diffMs = renewal - now;
-      const diffMins = Math.round(diffMs / 60000);
+    // 3️⃣ Must have deadline
+    if (!item.renewalDate) continue;
 
-      // Conditions:
-      // 1. Due soon (e.g. within 30 mins)
-      // 2. Already overdue (expired) but recently (within last 5 mins) to notify expiration? 
-      // Let's stick to approaching.
+    const deadline = new Date(item.renewalDate);
+    const diffMinutes = Math.floor((deadline - now) / 60000);
 
-      const thresholdMins = 30; // Notify if <= 30 mins left
+    // 4️⃣ Notify if deadline is within 30 minutes
+    const THRESHOLD = 30;
+    if (diffMinutes <= 0 || diffMinutes > THRESHOLD) continue;
 
-      const shouldNotify = diffMins > 0 && diffMins <= thresholdMins && !wasNotifiedRecently(item.lastNotified);
+    // 5️⃣ Anti-spam: skip if already notified recently
+    const alreadyNotifiedRecently =
+      item.lastNotified &&
+      now - new Date(item.lastNotified) < 2 * 60 * 60 * 1000;
 
-      if (shouldNotify) {
-        console.log(`🔔 Deadline Near: ${item.service} (${diffMins} mins left)`);
+    if (alreadyNotifiedRecently) continue;
 
-        if (item.email) {
-          await sendEmail({
-            to: item.email,
-            subject: `⏳ Hurry! 30 Mins Left: ${item.service}`,
-            text: `Your commitment "${item.service}" is due in ${diffMins} minutes. Submit your proof now!`,
-            html: `
-              <div style="font-family: sans-serif; padding: 20px; background: #0f172a; color: #fff; border-radius: 10px;">
-                <h2 style="color: #c084fc;">Deadline Approaching!</h2>
-                <p>You have <strong>${diffMins} minutes</strong> left to complete: <strong>${item.service}</strong>.</p>
-                <p>Stake: <strong>${item.stakeAmount} SOL</strong></p>
-                <a href="http://localhost:5173" style="display: inline-block; padding: 10px 20px; background: #c084fc; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">Submit Proof Now</a>
-              </div>
-            `
-          });
-        }
+    // 6️⃣ Send reminder email
+    console.log(
+      `🔔 Sending reminder: ${item.service} (${diffMinutes} mins left)`
+    );
 
-        item.lastNotified = new Date().toISOString();
-        updated = true;
-      }
-    }
+    await sendEmail({
+      to: item.email,
+      subject: `⏳ ${diffMinutes} mins left — ${item.service}`,
+      text: `Your task "${item.service}" expires in ${diffMinutes} minutes.`,
+      html: `
+        <div style="font-family:sans-serif;padding:20px">
+          <h2>⏰ Deadline Approaching</h2>
+          <p><strong>${item.service}</strong></p>
+          <p>${diffMinutes} minutes remaining</p>
+          <a href="https://life-admin-ai-five.vercel.app"
+             style="padding:10px;background:#7c3aed;color:white;text-decoration:none">
+            Submit Proof
+          </a>
+        </div>
+      `
+    });
 
-    if (updated) {
-      writeDB(dbPath, db);
-    }
-  });
-}
+    // 7️⃣ Lock notification
+    item.lastNotified = new Date().toISOString();
+    updated = true;
+  }
 
-function wasNotifiedRecently(lastNotified) {
-  if (!lastNotified) return false;
-  const diff = new Date() - new Date(lastNotified);
-  // Don't notify again if notified within last 2 hours
-  return diff < 2 * 60 * 60 * 1000;
+  if (updated) {
+    writeDB(dbPath, db);
+  }
 }

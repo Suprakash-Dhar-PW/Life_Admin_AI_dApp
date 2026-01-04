@@ -96,7 +96,7 @@ function App() {
 
       // 3. Register with Backend
       setStatus("Registering commitment...");
-      await fetch("http://localhost:3001/api/track", {
+      const response = await fetch("http://localhost:3001/api/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -112,9 +112,31 @@ function App() {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error("Backend registration failed. Check server logs.");
+      }
+
       setStatus("✅ Commitment locked on-chain");
       
-      // Delay slightly to let indexing catch up
+      // OPTIMISTIC UPDATE: Show immediately in UI
+      const newCommitment = {
+        mint: mintAddress,
+        service: goal,
+        deadline: deadline,
+        stake: stake,
+        status: "PENDING",
+        proofCid: null,
+        isTracked: true,
+        isDbOnly: true 
+      };
+
+      setCommitments((prev) => {
+        // Prevent duplicates
+        if (prev.find(c => c.mint === mintAddress)) return prev;
+        return [newCommitment, ...prev];
+      });
+
+      // Delay slightly to let indexing catch up, then refresh fully
       setTimeout(() => {
         setStatus("");
         setFormResetKey(prev => prev + 1);
